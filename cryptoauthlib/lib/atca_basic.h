@@ -34,6 +34,10 @@
 #include "cryptoauthlib.h"
 #include "crypto/atca_crypto_sw_sha2.h"
 
+// TODO Simon: It may lead to problem if the repo isn't used with our bms code!?
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
 /** \defgroup atcab_ Basic Crypto API methods (atcab_)
  *
  * \brief
@@ -58,6 +62,10 @@ ATCADevice atcab_get_device(void);
 ATCADeviceType atcab_get_device_type_ext(ATCADevice device);
 ATCADeviceType atcab_get_device_type(void);
 uint8_t atcab_get_device_address(ATCADevice device);
+
+SemaphoreHandle_t i2cMutex;
+ATCA_STATUS setup_i2c_mutex(SemaphoreHandle_t mutex);
+ATCA_STATUS atcab_dirty_change_baud(uint32_t speed);
 
 bool atcab_is_ca_device(ATCADeviceType dev_type);
 bool atcab_is_ta_device(ATCADeviceType dev_type);
