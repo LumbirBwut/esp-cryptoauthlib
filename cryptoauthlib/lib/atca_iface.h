@@ -192,8 +192,6 @@ ATCA_STATUS atwake(ATCAIface ca_iface);
 ATCA_STATUS atidle(ATCAIface ca_iface);
 ATCA_STATUS atsleep(ATCAIface ca_iface);
 
-ATCA_STATUS at_dirty_change_baud(uint32_t speed);
-
 // accessors
 ATCAIfaceCfg * atgetifacecfg(ATCAIface ca_iface);
 void* atgetifacehaldat(ATCAIface ca_iface);

@@ -65,7 +65,6 @@ uint8_t atcab_get_device_address(ATCADevice device);
 
 SemaphoreHandle_t i2cMutex;
 ATCA_STATUS setup_i2c_mutex(SemaphoreHandle_t mutex);
-ATCA_STATUS atcab_dirty_change_baud(uint32_t speed);
 
 bool atcab_is_ca_device(ATCADeviceType dev_type);
 bool atcab_is_ta_device(ATCADeviceType dev_type);

@@ -417,8 +417,4 @@ void deleteATCAIface(ATCAIface *ca_iface)
 }
 #endif
 
-ATCA_STATUS at_dirty_change_baud(uint32_t speed){
-    return dirty_change_baud(speed);
-}
-
 /** @} */

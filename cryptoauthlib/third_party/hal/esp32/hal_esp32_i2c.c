@@ -85,39 +85,6 @@ ATCA_STATUS hal_i2c_change_baud(ATCAIface iface, uint32_t speed)
     }
 }
 
-ATCA_STATUS dirty_change_baud(uint32_t speed)
-{
-    if (i2cMutex != NULL)
-    {
-        while (xSemaphoreTakeRecursive(i2cMutex, portMAX_DELAY) != pdTRUE)
-        {
-        };
-    }
-    else
-    {
-        return ATCA_FUNC_FAIL;
-    }
-
-    esp_err_t rc;
-
-    i2c_hal_data[0].conf.master.clk_speed = speed;
-
-    rc = i2c_param_config(i2c_hal_data[0].id, &i2c_hal_data[0].conf);
-    if (rc == ESP_OK)
-    {
-        // ESP_LOGD(TAG, "Baudrate Changed");
-        xSemaphoreGiveRecursive(i2cMutex);
-        return ATCA_SUCCESS;
-    }
-    else
-    {
-        // ESP_LOGW(TAG, "Baudrate Change Failed");
-        xSemaphoreGiveRecursive(i2cMutex);
-        return ATCA_COMM_FAIL;
-    }
-}
-
-
 /** \brief
     - this HAL implementation assumes you've included the START Twi libraries in your project, otherwise,
     the HAL layer will not compile because the START TWI drivers are a dependency *
@@ -136,7 +103,6 @@ ATCA_STATUS dirty_change_baud(uint32_t speed)
  */
 ATCA_STATUS hal_i2c_init(ATCAIface iface, ATCAIfaceCfg *cfg)
 {
-
     if (i2cMutex != NULL)
     {
         while (xSemaphoreTakeRecursive(i2cMutex, portMAX_DELAY) != pdTRUE)
@@ -148,9 +114,7 @@ ATCA_STATUS hal_i2c_init(ATCAIface iface, ATCAIfaceCfg *cfg)
         return ATCA_FUNC_FAIL;
     }
 
-    esp_err_t rc = ESP_FAIL;
     int bus = cfg->atcai2c.bus;
-
     if (bus >= 0 && bus < MAX_I2C_BUSES)
     {
         if (0 == i2c_hal_data[bus].ref_ct)
@@ -159,7 +123,7 @@ ATCA_STATUS hal_i2c_init(ATCAIface iface, ATCAIfaceCfg *cfg)
             i2c_hal_data[bus].conf.mode = I2C_MODE_MASTER;
             i2c_hal_data[bus].conf.sda_pullup_en = GPIO_PULLUP_DISABLE;
             i2c_hal_data[bus].conf.scl_pullup_en = GPIO_PULLUP_DISABLE;
-            i2c_hal_data[bus].conf.master.clk_speed = 100000; //cfg->atcai2c.baud;
+            i2c_hal_data[bus].conf.master.clk_speed = cfg->atcai2c.baud;
 
             switch (bus)
             {
@@ -174,12 +138,6 @@ ATCA_STATUS hal_i2c_init(ATCAIface iface, ATCAIfaceCfg *cfg)
 
             i2c_hal_data[bus].conf.sda_io_num = I2C_SDA_PIN;
             i2c_hal_data[bus].conf.scl_io_num = I2C_SCL_PIN;
-
-//            ESP_LOGI(TAG, "Configuring I2C");
-            rc = i2c_param_config(i2c_hal_data[bus].id, &i2c_hal_data[bus].conf);
-//            ESP_LOGD(TAG, "I2C Param Config: %s", esp_err_to_name(rc));
-            rc = i2c_driver_install(i2c_hal_data[bus].id, I2C_MODE_MASTER, 0, 0, 0);
-//            ESP_LOGD(TAG, "I2C Driver Install; %s", esp_err_to_name(rc));
         }
         else
         {
@@ -189,18 +147,8 @@ ATCA_STATUS hal_i2c_init(ATCAIface iface, ATCAIfaceCfg *cfg)
         iface->hal_data = &i2c_hal_data[bus];
     }
 
-    if (ESP_OK == rc)
-    {
-        xSemaphoreGiveRecursive(i2cMutex);
-        return ATCA_SUCCESS;
-    }
-    else
-    {
-        //ESP_LOGE(TAG, "I2C init failed");
-        xSemaphoreGiveRecursive(i2cMutex);
-
-        return ATCA_COMM_FAIL;
-    }
+    xSemaphoreGiveRecursive(i2cMutex);
+    return ATCA_SUCCESS;
 }
 
 
@@ -265,50 +213,6 @@ ATCA_STATUS hal_i2c_send(ATCAIface iface, uint8_t address, uint8_t *txdata, int 
     }
 }
 
-ATCA_STATUS hal_i2c_BQ_send(uint8_t address, const uint8_t *txdata, int txlength)
-{
-    if (i2cMutex != NULL)
-    {
-        while (xSemaphoreTakeRecursive(i2cMutex, portMAX_DELAY) != pdTRUE)
-        {
-        };
-    }
-    else
-    {
-        return ATCA_FUNC_FAIL;
-    }    
-
-    // TODO: Don't hardcoded it
-    i2c_port_t bus = 0;
-    esp_err_t rc;
-
-    //printf("### Simon: txdata: %p , txlength: %d fg->atcai2c.bus: %d address: %d\n", txdata, txlength,bus, address);
-    //ESP_LOGD(TAG, "txdata: %p , txlength: %d", txdata, txlength);
-    //ESP_LOG_BUFFER_HEXDUMP(TAG, txdata, txlength, 3);
-
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    (void)i2c_master_start(cmd);
-    (void)i2c_master_write_byte(cmd, address | I2C_MASTER_WRITE, ACK_CHECK_EN);
-    (void)i2c_master_write(cmd, txdata, txlength, ACK_CHECK_EN);
-    (void)i2c_master_stop(cmd);
-    rc = i2c_master_cmd_begin(bus, cmd, 10);
-    (void)i2c_cmd_link_delete(cmd);
-
-    if (ESP_OK != rc)
-    {
-        xSemaphoreGiveRecursive(i2cMutex);
-        printf("hal_i2c_BQ_send FAILED with: %d \n ", rc);
-        return ATCA_COMM_FAIL;
-    }
-    else
-    {
-        xSemaphoreGiveRecursive(i2cMutex);
-        //printf("hal_i2c_BQ_send success\n ");
-        // printf("\n hal_i2c_BQ_send sucess \n ");
-        return ATCA_SUCCESS;
-    }
-}
-
 /** \brief HAL implementation of I2C receive function
  * \param[in]    iface          Device to interact with.
  * \param[in]    address        Device address
@@ -365,59 +269,6 @@ ATCA_STATUS hal_i2c_receive(ATCAIface iface, uint8_t address, uint8_t *rxdata, u
 }
 
 
-ATCA_STATUS hal_i2c_BQ_receive(uint8_t address, uint8_t *rxdata, unsigned int *rxlength)
-{
-    if (i2cMutex != NULL)
-    {
-        while (xSemaphoreTakeRecursive(i2cMutex, portMAX_DELAY) != pdTRUE)
-        {
-        };
-    }
-    else
-    {
-        return ATCA_FUNC_FAIL;
-    }
-    
-    // TODO: Don't hardcoded it
-    i2c_port_t bus = 0;
-    esp_err_t rc;
-    i2c_cmd_handle_t cmd;
-    ATCA_STATUS status = ATCA_COMM_FAIL;
-
-    if ((NULL == rxlength) || (NULL == rxdata))
-    {
-        xSemaphoreGiveRecursive(i2cMutex);
-        return ATCA_TRACE(ATCA_INVALID_POINTER, "NULL pointer encountered");
-    }
-
-    cmd = i2c_cmd_link_create();
-    (void)i2c_master_start(cmd);
-    (void)i2c_master_write_byte(cmd, address | I2C_MASTER_READ, ACK_CHECK_EN);
-    if (*rxlength > 1)
-    {
-        (void)i2c_master_read(cmd, rxdata, *rxlength - 1, ACK_VAL);
-    }
-    (void)i2c_master_read_byte(cmd, rxdata + (size_t)*rxlength - 1, NACK_VAL);
-    (void)i2c_master_stop(cmd);
-    rc = i2c_master_cmd_begin(bus, cmd, 1000/portTICK_RATE_MS);
-    (void)i2c_cmd_link_delete(cmd);
-
-    // ESP_LOG_BUFFER_HEXDUMP(TAG, rxdata, *rxlength, 3);
-
-    if (ESP_OK == rc)
-    {
-        status = ATCA_SUCCESS;
-        //printf("hal_i2c_BQ_receive Succes\n ");
-    }
-    else {
-        // printf("\n hal_i2c_BQ_receive FAILED with: %d \n ", rc);
-
-    }
-    xSemaphoreGiveRecursive(i2cMutex);
-    return status;
-}
-
-
 /** \brief manages reference count on given bus and releases resource if no more refences exist
  * \param[in] hal_data - opaque pointer to hal data structure - known only to the HAL implementation
  * \return ATCA_SUCCESS on success, otherwise an error code.
@@ -439,7 +290,7 @@ ATCA_STATUS hal_i2c_release(void *hal_data)
 
     if (hal && --(hal->ref_ct) <= 0)
     {
-        i2c_driver_delete(hal->id);
+        //i2c_driver_delete(hal->id);
     }
     xSemaphoreGiveRecursive(i2cMutex);
     return ATCA_SUCCESS;

@@ -258,11 +258,6 @@ ATCA_STATUS setup_i2c_mutex(SemaphoreHandle_t mutex){
     return ATCA_SUCCESS;
 }
 
-ATCA_STATUS atcab_dirty_change_baud(uint32_t speed){
-    return at_dirty_change_baud(speed);
-}
-
-
 
 #if (ATCA_CA_SUPPORT && ATCA_TA_SUPPORT) || defined(ATCA_USE_ATCAB_FUNCTIONS) || defined(ATCA_ECC204_SUPPORT)
 
